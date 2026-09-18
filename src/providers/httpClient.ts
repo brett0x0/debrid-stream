@@ -1,4 +1,4 @@
-﻿export const BROWSER_USER_AGENT =
+export const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 export async function safeFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -9,8 +9,11 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
     ...(options.headers || {}),
   };
 
+  const signal = options.signal || AbortSignal.timeout(6000);
+
   return fetch(url, {
     ...options,
     headers,
+    signal,
   });
 }

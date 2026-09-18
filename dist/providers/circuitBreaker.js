@@ -30,15 +30,23 @@ export class CircuitBreaker {
             return fallback;
         }
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.callTimeoutMs);
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                controller.abort();
+                reject(new Error(`Operation timed out after ${this.callTimeoutMs}ms`));
+            }, this.callTimeoutMs);
+        });
         try {
-            const result = await action(controller.signal);
-            clearTimeout(timeoutId);
+            const result = await Promise.race([action(controller.signal), timeoutPromise]);
+            if (timeoutId)
+                clearTimeout(timeoutId);
             this.onSuccess();
             return result;
         }
         catch {
-            clearTimeout(timeoutId);
+            if (timeoutId)
+                clearTimeout(timeoutId);
             this.onFailure();
             return fallback;
         }

@@ -1,33 +1,48 @@
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
 import { safeFetch } from '../httpClient.js';
+import { logger } from '../../observability/logger.js';
 export class ThePirateBayAdapter {
     name = 'tpb';
     supportedTypes = ['movie', 'series'];
     baseUrl = 'https://apibay.org';
     async searchMovie(meta) {
         const queries = MetadataNormalizer.buildSearchQueries(meta);
-        if (!queries[0])
-            return [];
-        // Search for all video (SD, HD, 4K, Remux)
-        return this.queryApibay(queries[0], '200');
+        let results = [];
+        if (queries[0]) {
+            results = await this.queryApibay(queries[0], '200');
+        }
+        if (results.length < 5 && meta.imdbId) {
+            const imdbResults = await this.queryApibay(meta.imdbId, '200');
+            results = [...results, ...imdbResults];
+        }
+        return results;
     }
     async searchSeries(meta) {
         const queries = MetadataNormalizer.buildSearchQueries(meta);
-        if (!queries[0])
-            return [];
-        // Search for all video (SD, HD, 4K)
-        return this.queryApibay(queries[0], '200');
+        let results = [];
+        if (queries[0]) {
+            results = await this.queryApibay(queries[0], '200');
+        }
+        if (results.length < 5 && meta.imdbId) {
+            const imdbResults = await this.queryApibay(meta.imdbId, '200');
+            results = [...results, ...imdbResults];
+        }
+        return results;
     }
     async queryApibay(query, category) {
         const candidates = [];
         try {
             const url = `${this.baseUrl}/q.php?q=${encodeURIComponent(query)}&cat=${category}`;
             const res = await safeFetch(url);
-            if (!res.ok)
+            if (!res.ok) {
+                logger.warn({ provider: this.name, query, status: res.status }, 'Apibay returned non-200');
                 return [];
+            }
             const items = (await res.json());
-            if (!Array.isArray(items))
+            if (!Array.isArray(items)) {
+                logger.warn({ provider: this.name, query, items }, 'Apibay returned non-array');
                 return [];
+            }
             for (const item of items) {
                 if (!item.info_hash || item.id === '0' || item.name === 'No results returned') {
                     continue;
@@ -48,7 +63,8 @@ export class ThePirateBayAdapter {
                 });
             }
         }
-        catch {
+        catch (err) {
+            logger.warn({ provider: this.name, query, err: err.message }, 'Apibay fetch failed');
             return [];
         }
         return candidates;

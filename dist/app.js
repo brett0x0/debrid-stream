@@ -10,6 +10,7 @@ import { ManifestBuilder } from './stremio/manifest.js';
 import { StreamHandler } from './stremio/streamHandler.js';
 import { ResolveHandler } from './stremio/resolveHandler.js';
 import { ProviderOrchestrator } from './providers/orchestrator.js';
+import { safeFetch } from './providers/httpClient.js';
 // All Provider Adapters
 import { YtsAdapter } from './providers/adapters/yts.js';
 import { EztvAdapter } from './providers/adapters/eztv.js';
@@ -160,6 +161,64 @@ export function buildApp() {
             return reply.status(400).send({ ok: false, error: 'Invalid configuration payload' });
         }
         return reply.send({ ok: true, config: decoded });
+    });
+    // Debug upstream fetch test
+    app.get('/api/debug-fetch', async (req, reply) => {
+        const { url } = req.query;
+        if (!url)
+            return reply.status(400).send({ error: 'Missing url query param' });
+        const t0 = Date.now();
+        try {
+            const res = await safeFetch(url);
+            const text = await res.text();
+            return reply.send({
+                status: res.status,
+                statusText: res.statusText,
+                durationMs: Date.now() - t0,
+                headers: Object.fromEntries(res.headers.entries()),
+                bodySnippet: text.substring(0, 1000),
+            });
+        }
+        catch (err) {
+            return reply.status(500).send({
+                error: err.message,
+                durationMs: Date.now() - t0,
+            });
+        }
+    });
+    // Debug provider search test
+    app.get('/api/debug-provider', async (req, reply) => {
+        const { name, q, season, episode } = req.query;
+        const p = orchestrator.getProvider(name || 'tpb');
+        if (!p)
+            return reply.status(404).send({ error: 'Provider not found' });
+        const t0 = Date.now();
+        try {
+            const s = season ? parseInt(season, 10) : 1;
+            const e = episode ? parseInt(episode, 10) : 3;
+            const meta = {
+                type: 'series',
+                imdbId: 'tt0903747',
+                title: q || 'Breaking Bad',
+                season: s,
+                episode: e,
+            };
+            const results = await p.searchSeries(meta);
+            return reply.send({
+                provider: p.name,
+                query: `${meta.title} S${String(s).padStart(2, '0')}E${String(e).padStart(2, '0')}`,
+                durationMs: Date.now() - t0,
+                count: results.length,
+                firstThree: results.slice(0, 3),
+            });
+        }
+        catch (err) {
+            return reply.status(500).send({
+                provider: p.name,
+                error: err.message,
+                durationMs: Date.now() - t0,
+            });
+        }
     });
     // Stremio: Root unconfigured manifest
     app.get('/manifest.json', async (_req, reply) => {

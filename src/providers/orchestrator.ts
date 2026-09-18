@@ -7,6 +7,7 @@ import { MetadataNormalizer } from '../metadata/normalizer.js';
 import { Deduplicator } from '../ranking/deduplicator.js';
 import { UserConfig } from '../config/userConfig.js';
 import { env } from '../config/env.js';
+import { logger } from '../observability/logger.js';
 
 export interface ProviderHealth {
   name: string;
@@ -61,16 +62,21 @@ export class ProviderOrchestrator {
       const breaker = this.breakers.get(name)!;
 
       tasks.push(
-        breaker.execute(
-          async () => {
-            if (meta.type === 'movie') {
-              return await provider.searchMovie(meta);
-            } else {
-              return await provider.searchSeries(meta);
-            }
-          },
-          [] // Fallback on failure or timeout
-        )
+        (async () => {
+          const t0 = Date.now();
+          const cand = await breaker.execute(
+            async () => {
+              if (meta.type === 'movie') {
+                return await provider.searchMovie(meta);
+              } else {
+                return await provider.searchSeries(meta);
+              }
+            },
+            [] // Fallback on failure or timeout
+          );
+          logger.info({ provider: name, count: cand.length, durationMs: Date.now() - t0 }, 'Provider search completed');
+          return cand;
+        })()
       );
     }
 
@@ -101,6 +107,13 @@ export class ProviderOrchestrator {
         parsed,
       });
     }
+
+    logger.info({
+      type: meta.type,
+      rawCandidates: allCandidates.length,
+      matchedCandidates: matchedCandidates.length,
+      title: meta.title
+    }, 'Candidates filtered');
 
     // Deduplicate
     return Deduplicator.deduplicate(matchedCandidates);

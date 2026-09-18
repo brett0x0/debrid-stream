@@ -3,6 +3,7 @@ import { MediaMetadata } from '../../metadata/types.js';
 import { TorrentCandidate } from '../../parser/types.js';
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
 import { safeFetch } from '../httpClient.js';
+import { logger } from '../../observability/logger.js';
 
 interface TpbItem {
   id: string;
@@ -21,18 +22,34 @@ export class ThePirateBayAdapter implements TorrentProvider {
 
   public async searchMovie(meta: MediaMetadata): Promise<TorrentCandidate[]> {
     const queries = MetadataNormalizer.buildSearchQueries(meta);
-    if (!queries[0]) return [];
+    let results: TorrentCandidate[] = [];
 
-    // Search for all video (SD, HD, 4K, Remux)
-    return this.queryApibay(queries[0], '200');
+    if (queries[0]) {
+      results = await this.queryApibay(queries[0], '200');
+    }
+
+    if (results.length < 5 && meta.imdbId) {
+      const imdbResults = await this.queryApibay(meta.imdbId, '200');
+      results = [...results, ...imdbResults];
+    }
+
+    return results;
   }
 
   public async searchSeries(meta: MediaMetadata): Promise<TorrentCandidate[]> {
     const queries = MetadataNormalizer.buildSearchQueries(meta);
-    if (!queries[0]) return [];
+    let results: TorrentCandidate[] = [];
 
-    // Search for all video (SD, HD, 4K)
-    return this.queryApibay(queries[0], '200');
+    if (queries[0]) {
+      results = await this.queryApibay(queries[0], '200');
+    }
+
+    if (results.length < 5 && meta.imdbId) {
+      const imdbResults = await this.queryApibay(meta.imdbId, '200');
+      results = [...results, ...imdbResults];
+    }
+
+    return results;
   }
 
   private async queryApibay(query: string, category: string): Promise<TorrentCandidate[]> {
@@ -41,10 +58,16 @@ export class ThePirateBayAdapter implements TorrentProvider {
     try {
       const url = `${this.baseUrl}/q.php?q=${encodeURIComponent(query)}&cat=${category}`;
       const res = await safeFetch(url);
-      if (!res.ok) return [];
+      if (!res.ok) {
+        logger.warn({ provider: this.name, query, status: res.status }, 'Apibay returned non-200');
+        return [];
+      }
 
       const items = (await res.json()) as TpbItem[];
-      if (!Array.isArray(items)) return [];
+      if (!Array.isArray(items)) {
+        logger.warn({ provider: this.name, query, items }, 'Apibay returned non-array');
+        return [];
+      }
 
       for (const item of items) {
         if (!item.info_hash || item.id === '0' || item.name === 'No results returned') {
@@ -67,7 +90,8 @@ export class ThePirateBayAdapter implements TorrentProvider {
           magnetUri: `magnet:?xt=urn:btih:${cleanHash}&dn=${encodeURIComponent(item.name)}`,
         });
       }
-    } catch {
+    } catch (err: any) {
+      logger.warn({ provider: this.name, query, err: err.message }, 'Apibay fetch failed');
       return [];
     }
 

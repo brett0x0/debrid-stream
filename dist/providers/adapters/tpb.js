@@ -8,15 +8,15 @@ export class ThePirateBayAdapter {
         const queries = MetadataNormalizer.buildSearchQueries(meta);
         if (!queries[0])
             return [];
-        // Search for the primary movie query
-        return this.queryApibay(queries[0], '201'); // 201 = Movies
+        // Search for all video (SD, HD, 4K, Remux)
+        return this.queryApibay(queries[0], '200');
     }
     async searchSeries(meta) {
         const queries = MetadataNormalizer.buildSearchQueries(meta);
         if (!queries[0])
             return [];
-        // Search for the primary series episode query (e.g. "Breaking Bad S01E01")
-        return this.queryApibay(queries[0], '205'); // 205 = TV shows
+        // Search for all video (SD, HD, 4K)
+        return this.queryApibay(queries[0], '200');
     }
     async queryApibay(query, category) {
         const candidates = [];

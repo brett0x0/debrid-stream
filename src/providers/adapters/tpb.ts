@@ -23,16 +23,16 @@ export class ThePirateBayAdapter implements TorrentProvider {
     const queries = MetadataNormalizer.buildSearchQueries(meta);
     if (!queries[0]) return [];
 
-    // Search for the primary movie query
-    return this.queryApibay(queries[0], '201'); // 201 = Movies
+    // Search for all video (SD, HD, 4K, Remux)
+    return this.queryApibay(queries[0], '200');
   }
 
   public async searchSeries(meta: MediaMetadata): Promise<TorrentCandidate[]> {
     const queries = MetadataNormalizer.buildSearchQueries(meta);
     if (!queries[0]) return [];
 
-    // Search for the primary series episode query (e.g. "Breaking Bad S01E01")
-    return this.queryApibay(queries[0], '205'); // 205 = TV shows
+    // Search for all video (SD, HD, 4K)
+    return this.queryApibay(queries[0], '200');
   }
 
   private async queryApibay(query: string, category: string): Promise<TorrentCandidate[]> {

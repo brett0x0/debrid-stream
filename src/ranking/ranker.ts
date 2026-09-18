@@ -21,6 +21,9 @@ export class StreamRanker {
 
     const maxBytes = config.maxFileSizeGb > 0 ? config.maxFileSizeGb * 1024 * 1024 * 1024 : Infinity;
 
+    // Check if any candidate in this batch is known to be cached
+    const hasAnyCached = candidates.some((c) => cachedHashes.has(c.infoHash.toLowerCase()));
+
     for (const candidate of candidates) {
       // 1. File size filter
       if (candidate.sizeBytes > 0 && candidate.sizeBytes > maxBytes) {
@@ -39,10 +42,10 @@ export class StreamRanker {
       const isCached = cachedHashes.has(cleanHash);
 
       // 3. Show cached only filter
-      // If cachedHashes is populated, enforce cached filter.
-      // If cachedHashes is empty (because Real-Debrid disabled the instantAvailability endpoint),
+      // If any candidate in the current query is known cached, enforce cached filter.
+      // If none are in cachedHashes (e.g. Real-Debrid disabled instantAvailability endpoint),
       // do not discard all streams so users can still stream via Real-Debrid on-demand resolve.
-      if (config.showCachedOnly && cachedHashes.size > 0 && !isCached) {
+      if (config.showCachedOnly && hasAnyCached && !isCached) {
         continue;
       }
 

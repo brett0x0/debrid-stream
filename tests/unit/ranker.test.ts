@@ -86,6 +86,24 @@ describe('StreamRanker', () => {
     expect(ranked[0]?.isCached).toBe(true);
   });
 
+  it('enforces showCachedOnly when at least one candidate is cached', () => {
+    const cachedOnlyConfig: UserConfig = { ...baseConfig, showCachedOnly: true };
+    const cached = new Set([cand1080pBluRay.infoHash]);
+    const ranked = StreamRanker.rank([cand4kRemux, cand1080pBluRay], cached, cachedOnlyConfig);
+
+    expect(ranked.length).toBe(1);
+    expect(ranked[0]?.candidate.infoHash).toBe(cand1080pBluRay.infoHash);
+  });
+
+  it('gracefully preserves candidates when showCachedOnly is true but no candidates in the query are cached', () => {
+    const cachedOnlyConfig: UserConfig = { ...baseConfig, showCachedOnly: true };
+    // cached set has an unrelated hash (e.g. from user's account), but none of the query candidates
+    const unrelatedCached = new Set(['unrelated_hash_from_library']);
+    const ranked = StreamRanker.rank([cand4kRemux, cand1080pBluRay], unrelatedCached, cachedOnlyConfig);
+
+    expect(ranked.length).toBe(2);
+  });
+
   it('filters out releases exceeding maxFileSizeGb', () => {
     const sizeRestrictedConfig: UserConfig = {
       ...baseConfig,

@@ -88,14 +88,16 @@ export class StreamHandler {
                 // Continue with whatever availability was in cache
             }
         }
+        // Check if any candidate in this query is known to be cached
+        const hasAnyCached = candidates.some((c) => cachedHashes.has(c.infoHash.toLowerCase()));
         // 4. Rank candidates deterministically
         const ranked = StreamRanker.rank(candidates, cachedHashes, config);
         // 5. Format into Stremio stream representations
         const streams = ranked.map((item) => {
             const c = item.candidate;
             const p = c.parsed;
-            // Quality badge
-            const badge = item.isCached || cachedHashes.size === 0 ? '[RD+]' : '[RD download]';
+            // Quality badge: [RD+] if cached or if instant-availability is unavailable (on-demand resolve)
+            const badge = item.isCached || !hasAnyCached ? '[RD+]' : '[RD download]';
             const res = p?.resolution && p.resolution !== 'unknown' ? p.resolution : 'HD';
             // Format file size
             let sizeStr = '';

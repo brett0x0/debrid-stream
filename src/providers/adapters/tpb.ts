@@ -2,6 +2,7 @@ import { TorrentProvider } from '../providerInterface.js';
 import { MediaMetadata } from '../../metadata/types.js';
 import { TorrentCandidate } from '../../parser/types.js';
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
+import { safeFetch } from '../httpClient.js';
 
 interface TpbItem {
   id: string;
@@ -39,7 +40,7 @@ export class ThePirateBayAdapter implements TorrentProvider {
 
     try {
       const url = `${this.baseUrl}/q.php?q=${encodeURIComponent(query)}&cat=${category}`;
-      const res = await fetch(url);
+      const res = await safeFetch(url);
       if (!res.ok) return [];
 
       const items = (await res.json()) as TpbItem[];
@@ -75,7 +76,7 @@ export class ThePirateBayAdapter implements TorrentProvider {
 
   public async healthCheck(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/q.php?q=test&cat=200`);
+      const res = await safeFetch(`${this.baseUrl}/q.php?q=test&cat=200`);
       return res.ok;
     } catch {
       return false;

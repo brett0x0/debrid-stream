@@ -1,6 +1,7 @@
 import { TorrentProvider } from '../providerInterface.js';
 import { MediaMetadata } from '../../metadata/types.js';
 import { TorrentCandidate } from '../../parser/types.js';
+import { safeFetch } from '../httpClient.js';
 
 interface YtsTorrent {
   url: string;
@@ -37,7 +38,7 @@ export class YtsAdapter implements TorrentProvider {
 
     try {
       const url = `${this.baseUrl}/list_movies.json?query_term=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
+      const res = await safeFetch(url);
       if (!res.ok) return [];
 
       const data = (await res.json()) as YtsApiResponse;
@@ -76,7 +77,7 @@ export class YtsAdapter implements TorrentProvider {
 
   public async healthCheck(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/list_movies.json?limit=1`);
+      const res = await safeFetch(`${this.baseUrl}/list_movies.json?limit=1`);
       return res.ok;
     } catch {
       return false;

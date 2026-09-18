@@ -1,4 +1,5 @@
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
+import { safeFetch } from '../httpClient.js';
 export class ThePirateBayAdapter {
     name = 'tpb';
     supportedTypes = ['movie', 'series'];
@@ -21,7 +22,7 @@ export class ThePirateBayAdapter {
         const candidates = [];
         try {
             const url = `${this.baseUrl}/q.php?q=${encodeURIComponent(query)}&cat=${category}`;
-            const res = await fetch(url);
+            const res = await safeFetch(url);
             if (!res.ok)
                 return [];
             const items = (await res.json());
@@ -54,7 +55,7 @@ export class ThePirateBayAdapter {
     }
     async healthCheck() {
         try {
-            const res = await fetch(`${this.baseUrl}/q.php?q=test&cat=200`);
+            const res = await safeFetch(`${this.baseUrl}/q.php?q=test&cat=200`);
             return res.ok;
         }
         catch {

@@ -98,6 +98,9 @@ export function buildApp() {
     app.get('/configure', async (_req, reply) => {
         return reply.sendFile('index.html');
     });
+    app.get('/:config/configure', async (_req, reply) => {
+        return reply.sendFile('index.html');
+    });
     // API to validate Real-Debrid API token from Web UI
     app.post('/api/validate-token', async (req, reply) => {
         const body = req.body;

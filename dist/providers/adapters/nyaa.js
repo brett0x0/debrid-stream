@@ -1,5 +1,6 @@
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
 import { RssHelper } from '../rssHelper.js';
+import { safeFetch } from '../httpClient.js';
 export class NyaaAdapter {
     name = 'nyaasi';
     displayName = 'NyaaSi';
@@ -22,7 +23,7 @@ export class NyaaAdapter {
         const candidates = [];
         try {
             const url = `${this.baseUrl}/?page=rss&q=${encodeURIComponent(query)}&c=0_0&f=0`;
-            const res = await fetch(url);
+            const res = await safeFetch(url);
             if (!res.ok)
                 return [];
             const xml = await res.text();
@@ -38,7 +39,7 @@ export class NyaaAdapter {
                     sizeBytes: item.sizeBytes,
                     seeders: item.seeders,
                     leechers: item.leechers,
-                    magnetUri: item.magnetUri,
+                    magnetUri: item.magnetUri || `magnet:?xt=urn:btih:${item.infoHash}&dn=${encodeURIComponent(item.title)}`,
                 });
             }
         }
@@ -49,7 +50,7 @@ export class NyaaAdapter {
     }
     async healthCheck() {
         try {
-            const res = await fetch(`${this.baseUrl}/?page=rss&limit=1`);
+            const res = await safeFetch(`${this.baseUrl}/?page=rss&limit=1`);
             return res.ok;
         }
         catch {

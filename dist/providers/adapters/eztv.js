@@ -1,3 +1,4 @@
+import { safeFetch } from '../httpClient.js';
 export class EztvAdapter {
     name = 'eztv';
     supportedTypes = ['series'];
@@ -13,7 +14,7 @@ export class EztvAdapter {
         const numericImdb = meta.imdbId.replace(/^tt/, '');
         try {
             const url = `${this.baseUrl}/get-torrents?imdb_id=${numericImdb}&limit=100`;
-            const res = await fetch(url);
+            const res = await safeFetch(url);
             if (!res.ok)
                 return [];
             const data = (await res.json());
@@ -22,16 +23,17 @@ export class EztvAdapter {
             for (const tor of data.torrents) {
                 if (!tor.hash)
                     continue;
-                // If specific season & episode requested, filter
-                if (meta.season !== undefined && meta.episode !== undefined) {
-                    const s = parseInt(tor.season, 10);
-                    const e = parseInt(tor.episode, 10);
-                    if (s !== meta.season || e !== meta.episode) {
+                const cleanHash = tor.hash.toLowerCase();
+                // If specific episode requested, verify filename contains SxxExx
+                if (meta.season && meta.episode) {
+                    const sStr = String(meta.season).padStart(2, '0');
+                    const eStr = String(meta.episode).padStart(2, '0');
+                    const epPattern = new RegExp(`s${sStr}e${eStr}`, 'i');
+                    if (!epPattern.test(tor.filename)) {
                         continue;
                     }
                 }
-                const cleanHash = tor.hash.toLowerCase();
-                const sizeBytes = typeof tor.size_bytes === 'string' ? parseInt(tor.size_bytes, 10) : tor.size_bytes || 0;
+                const sizeBytes = typeof tor.size_bytes === 'number' ? tor.size_bytes : parseInt(String(tor.size_bytes), 10) || 0;
                 candidates.push({
                     id: `eztv-${cleanHash}`,
                     provider: this.name,
@@ -51,7 +53,7 @@ export class EztvAdapter {
     }
     async healthCheck() {
         try {
-            const res = await fetch(`${this.baseUrl}/get-torrents?limit=1`);
+            const res = await safeFetch(`${this.baseUrl}/get-torrents?limit=1`);
             return res.ok;
         }
         catch {

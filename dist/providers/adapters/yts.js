@@ -1,3 +1,4 @@
+import { safeFetch } from '../httpClient.js';
 export class YtsAdapter {
     name = 'yts';
     supportedTypes = ['movie'];
@@ -7,7 +8,7 @@ export class YtsAdapter {
         const query = meta.imdbId || meta.title;
         try {
             const url = `${this.baseUrl}/list_movies.json?query_term=${encodeURIComponent(query)}`;
-            const res = await fetch(url);
+            const res = await safeFetch(url);
             if (!res.ok)
                 return [];
             const data = (await res.json());
@@ -44,7 +45,7 @@ export class YtsAdapter {
     }
     async healthCheck() {
         try {
-            const res = await fetch(`${this.baseUrl}/list_movies.json?limit=1`);
+            const res = await safeFetch(`${this.baseUrl}/list_movies.json?limit=1`);
             return res.ok;
         }
         catch {

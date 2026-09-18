@@ -1,6 +1,7 @@
 import { TorrentProvider } from '../providerInterface.js';
 import { MediaMetadata } from '../../metadata/types.js';
 import { TorrentCandidate } from '../../parser/types.js';
+import { safeFetch } from '../httpClient.js';
 
 interface EztvTorrent {
   id: number;
@@ -37,7 +38,7 @@ export class EztvAdapter implements TorrentProvider {
 
     try {
       const url = `${this.baseUrl}/get-torrents?imdb_id=${numericImdb}&limit=100`;
-      const res = await fetch(url);
+      const res = await safeFetch(url);
       if (!res.ok) return [];
 
       const data = (await res.json()) as EztvApiResponse;
@@ -45,18 +46,19 @@ export class EztvAdapter implements TorrentProvider {
 
       for (const tor of data.torrents) {
         if (!tor.hash) continue;
+        const cleanHash = tor.hash.toLowerCase();
 
-        // If specific season & episode requested, filter
-        if (meta.season !== undefined && meta.episode !== undefined) {
-          const s = parseInt(tor.season, 10);
-          const e = parseInt(tor.episode, 10);
-          if (s !== meta.season || e !== meta.episode) {
+        // If specific episode requested, verify filename contains SxxExx
+        if (meta.season && meta.episode) {
+          const sStr = String(meta.season).padStart(2, '0');
+          const eStr = String(meta.episode).padStart(2, '0');
+          const epPattern = new RegExp(`s${sStr}e${eStr}`, 'i');
+          if (!epPattern.test(tor.filename)) {
             continue;
           }
         }
 
-        const cleanHash = tor.hash.toLowerCase();
-        const sizeBytes = typeof tor.size_bytes === 'string' ? parseInt(tor.size_bytes, 10) : tor.size_bytes || 0;
+        const sizeBytes = typeof tor.size_bytes === 'number' ? tor.size_bytes : parseInt(String(tor.size_bytes), 10) || 0;
 
         candidates.push({
           id: `eztv-${cleanHash}`,
@@ -78,7 +80,7 @@ export class EztvAdapter implements TorrentProvider {
 
   public async healthCheck(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/get-torrents?limit=1`);
+      const res = await safeFetch(`${this.baseUrl}/get-torrents?limit=1`);
       return res.ok;
     } catch {
       return false;

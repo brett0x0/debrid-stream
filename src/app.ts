@@ -199,10 +199,16 @@ export function buildApp() {
     return reply.send(ManifestBuilder.buildConfigured(userConfig));
   });
 
-  // Stremio: Stream handler
+  // Stremio: Stream endpoint
   app.get('/:config/stream/:type/:id.json', async (req, reply) => {
     metrics.incrementStream();
-    const { config, type, id } = req.params as { config: string; type: string; id: string };
+    const { config, type, id } = req.params as {
+      config: string;
+      type: string;
+      id: string;
+    };
+
+    req.log.info({ type, id }, 'Received stream request');
 
     if (type !== 'movie' && type !== 'series') {
       return reply.send({ streams: [] });

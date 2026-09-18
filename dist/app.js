@@ -176,10 +176,11 @@ export function buildApp() {
         reply.header('Cache-Control', 'max-age=86400, public');
         return reply.send(ManifestBuilder.buildConfigured(userConfig));
     });
-    // Stremio: Stream handler
+    // Stremio: Stream endpoint
     app.get('/:config/stream/:type/:id.json', async (req, reply) => {
         metrics.incrementStream();
         const { config, type, id } = req.params;
+        req.log.info({ type, id }, 'Received stream request');
         if (type !== 'movie' && type !== 'series') {
             return reply.send({ streams: [] });
         }

@@ -1,6 +1,7 @@
 import { CinemetaClient } from '../metadata/cinemeta.js';
 import { CacheManager } from '../cache/cacheManager.js';
 import { StreamRanker } from '../ranking/ranker.js';
+import { logger } from '../observability/logger.js';
 export class StreamHandler {
     cinemeta;
     orchestrator;
@@ -18,16 +19,22 @@ export class StreamHandler {
         // 1. Resolve media metadata from Cinemeta
         const meta = await this.cinemeta.resolve(type, id);
         if (!meta) {
+            logger.warn({ type, id }, 'Failed to resolve Cinemeta metadata');
             return { streams: [] };
         }
+        logger.info({ type, id, title: meta.title, season: meta.season, episode: meta.episode }, 'Cinemeta resolved');
         // 2. Fetch candidates from L3 provider cache or search orchestrator
         const provCacheKey = CacheManager.getProviderSearchKey(type, id);
         let candidates = await this.cache.get(provCacheKey);
         if (!candidates || candidates.length === 0) {
             candidates = await this.orchestrator.search(meta, config);
+            logger.info({ type, id, candidatesFound: candidates?.length }, 'Orchestrator search completed');
             if (candidates && candidates.length > 0) {
                 await this.cache.set(provCacheKey, candidates, 7200);
             }
+        }
+        else {
+            logger.info({ type, id, cachedCandidates: candidates.length }, 'Using cached provider results');
         }
         if (!candidates || candidates.length === 0) {
             return { streams: [] };

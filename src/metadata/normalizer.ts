@@ -52,11 +52,10 @@ export class MetadataNormalizer {
     const normCand = this.cleanTitle(candidateTitle).toLowerCase();
     const normTarget = this.cleanTitle(meta.title).toLowerCase();
 
-    // The candidate must at least contain the core target words
-    const targetWords = normTarget.split(' ').filter((w) => w.length > 1);
-    const hasAllWords = targetWords.every((w) => normCand.includes(w));
-
-    if (!hasAllWords) {
+    // Check if candidate contains the full target title phrase with word boundaries
+    const escapedTarget = normTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const phraseRegex = new RegExp(`(^|\\b)${escapedTarget}(\\b|$)`, 'i');
+    if (!phraseRegex.test(normCand)) {
       return false;
     }
 

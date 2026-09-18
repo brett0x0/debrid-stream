@@ -77,6 +77,7 @@ export class StreamHandler {
             }
         }
         // Check availability in L4 cache first
+        const deadHashes = new Set();
         const missingHashes = [];
         for (const h of hashes) {
             if (cachedHashes.has(h))
@@ -86,34 +87,20 @@ export class StreamHandler {
             if (isCached === true) {
                 cachedHashes.add(h);
             }
+            else if (isCached === false) {
+                deadHashes.add(h);
+            }
             else if (isCached === null) {
                 missingHashes.push(h);
             }
         }
-        // If there are hashes not in L4 cache, query Real-Debrid
-        if (missingHashes.length > 0) {
-            try {
-                const rdAvail = await this.rdClient.getInstantAvailability(missingHashes, config.rdToken);
-                for (const [hash, hoster] of Object.entries(rdAvail)) {
-                    const cleanH = hash.toLowerCase();
-                    const hasRd = hoster && hoster.rd && Array.isArray(hoster.rd) && hoster.rd.length > 0;
-                    if (hasRd) {
-                        cachedHashes.add(cleanH);
-                        await this.cache.set(CacheManager.getRdAvailabilityKey(cleanH), true, 1800); // 30 min
-                    }
-                    else {
-                        await this.cache.set(CacheManager.getRdAvailabilityKey(cleanH), false, 900); // 15 min
-                    }
-                }
-            }
-            catch {
-                // Continue with whatever availability was in cache
-            }
-        }
+        // Filter out known DMCA-blocked/dead hashes if valid alternatives exist
+        const validCandidates = candidates.filter((c) => !deadHashes.has(c.infoHash.toLowerCase()));
+        const candidatesToRank = validCandidates.length > 0 ? validCandidates : candidates;
         // Check if any candidate in this query is known to be cached
-        const hasAnyCached = candidates.some((c) => cachedHashes.has(c.infoHash.toLowerCase()));
+        const hasAnyCached = candidatesToRank.some((c) => cachedHashes.has(c.infoHash.toLowerCase()));
         // 4. Rank candidates deterministically
-        const ranked = StreamRanker.rank(candidates, cachedHashes, config);
+        const ranked = StreamRanker.rank(candidatesToRank, cachedHashes, config);
         // 5. Format into Stremio stream representations
         const streams = ranked.map((item) => {
             const c = item.candidate;
@@ -162,7 +149,7 @@ export class StreamHandler {
             // Construct lazy resolution link
             const fileIdx = item.fileIdx ?? 0;
             const baseUrl = baseUrlOverride || this.publicBaseUrl;
-            const resolveUrl = `${baseUrl}/resolve/${encodedConfig}/${c.infoHash}/${fileIdx}`;
+            const resolveUrl = `${baseUrl}/resolve/${encodedConfig}/${c.infoHash}/${fileIdx}?type=${type}&id=${encodeURIComponent(id)}`;
             return {
                 name: streamName,
                 title: titleLines.join('\n'),

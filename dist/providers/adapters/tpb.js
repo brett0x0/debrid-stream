@@ -21,8 +21,14 @@ export class ThePirateBayAdapter {
     async searchSeries(meta) {
         const queries = MetadataNormalizer.buildSearchQueries(meta);
         let results = [];
+        // 1. Query episode release (e.g. "American Horror Story S03E03")
         if (queries[0]) {
             results = await this.queryTpb(queries[0], '200');
+        }
+        // 2. Also query season pack (e.g. "American Horror Story S03")
+        if (queries[2]) {
+            const packResults = await this.queryTpb(queries[2], '200');
+            results = [...results, ...packResults];
         }
         if (results.length < 5 && meta.imdbId) {
             const imdbResults = await this.queryTpb(meta.imdbId, '200');

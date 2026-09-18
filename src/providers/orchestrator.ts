@@ -92,8 +92,8 @@ export class ProviderOrchestrator {
     if (activeTasks.length === 0) return [];
 
     const allCandidates: TorrentCandidate[] = [];
-    const minCandidatesThreshold = 12;
-    const fastCutoffMs = 1200;
+    const minCandidatesThreshold = 10;
+    const fastCutoffMs = 1500;
     const hardTimeoutMs = env.PROVIDER_TIMEOUT_MS;
     const startTime = Date.now();
 
@@ -112,8 +112,9 @@ export class ProviderOrchestrator {
       };
 
       const cutoffTimer = setTimeout(() => {
-        if (allCandidates.length >= minCandidatesThreshold) {
-          logger.info({ candidateCount: allCandidates.length, elapsedMs: Date.now() - startTime }, 'Fast-cutoff triggered: returning high-speed results');
+        const distinctProviders = new Set(allCandidates.map((c) => c.provider)).size;
+        if (allCandidates.length >= 25 || (allCandidates.length >= minCandidatesThreshold && distinctProviders >= 2)) {
+          logger.info({ candidateCount: allCandidates.length, distinctProviders, elapsedMs: Date.now() - startTime }, 'Fast-cutoff triggered: returning diverse high-speed results');
           finish();
         }
       }, fastCutoffMs);
@@ -129,9 +130,10 @@ export class ProviderOrchestrator {
             allCandidates.push(...res);
           }
           completed++;
+          const distinctProviders = new Set(allCandidates.map((c) => c.provider)).size;
           if (completed >= total) {
             finish();
-          } else if (Date.now() - startTime >= fastCutoffMs && allCandidates.length >= minCandidatesThreshold) {
+          } else if (Date.now() - startTime >= fastCutoffMs && (allCandidates.length >= 25 || (allCandidates.length >= minCandidatesThreshold && distinctProviders >= 2))) {
             finish();
           }
         }).catch(() => {

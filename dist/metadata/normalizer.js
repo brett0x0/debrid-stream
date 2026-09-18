@@ -64,13 +64,28 @@ export class MetadataNormalizer {
         if (meta.type === 'series' && meta.season !== undefined && meta.episode !== undefined) {
             const s = meta.season;
             const e = meta.episode;
-            // Check S01E02 or 1x02 or multi-episode
+            // 1. Direct episode match (e.g. S01E02, 1x02)
             const sxe = new RegExp(`\\b[sS]0?${s}[eE]0?${e}\\b`, 'i');
             const alt = new RegExp(`\\b0?${s}x0?${e}\\b`, 'i');
-            const completeSeason = new RegExp(`\\b[sS]0?${s}\\b.*\\b(?:complete|season|pack)\\b`, 'i');
-            if (!sxe.test(candidateTitle) && !alt.test(candidateTitle) && !completeSeason.test(candidateTitle)) {
-                return false;
+            if (sxe.test(candidateTitle) || alt.test(candidateTitle)) {
+                return true;
             }
+            // 2. Season pack match (e.g. "American.Horror.Story.S03.1080p...", "Show Season 3")
+            // Must contain S03 / Season 3, and NOT contain a different episode number (like E01, E02, E04)
+            const seasonPattern = new RegExp(`\\b(?:[sS]0?${s}|Season\\s*0?${s})\\b`, 'i');
+            const anyEpisodePattern = /\b(?:[sS]\d+[eE](\d+)|\d+x(\d+)|[eE][pP]?\s*(\d+))\b/i;
+            if (seasonPattern.test(candidateTitle)) {
+                const epMatch = candidateTitle.match(anyEpisodePattern);
+                if (!epMatch) {
+                    // Pure season pack without specific episode in title -> matches all episodes in season
+                    return true;
+                }
+                const candEp = parseInt(epMatch[1] || epMatch[2] || epMatch[3] || '0', 10);
+                if (candEp === e) {
+                    return true;
+                }
+            }
+            return false;
         }
         return true;
     }

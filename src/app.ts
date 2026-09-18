@@ -307,7 +307,8 @@ export function buildApp() {
     }
 
     const idx = parseInt(fileIdx, 10) || 0;
-    const streamUrl = await resolveHandler.resolve(userConfig, infoHash, idx);
+    const { type, id } = req.query as { type?: string; id?: string };
+    const streamUrl = await resolveHandler.resolve(userConfig, infoHash, idx, type, id);
 
     if (!streamUrl) {
       return reply.status(404).send({ error: 'Stream not found or could not be resolved' });

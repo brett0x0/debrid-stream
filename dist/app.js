@@ -270,7 +270,8 @@ export function buildApp() {
             return reply.status(401).send({ error: 'Invalid addon configuration' });
         }
         const idx = parseInt(fileIdx, 10) || 0;
-        const streamUrl = await resolveHandler.resolve(userConfig, infoHash, idx);
+        const { type, id } = req.query;
+        const streamUrl = await resolveHandler.resolve(userConfig, infoHash, idx, type, id);
         if (!streamUrl) {
             return reply.status(404).send({ error: 'Stream not found or could not be resolved' });
         }

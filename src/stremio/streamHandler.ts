@@ -65,9 +65,22 @@ export class StreamHandler {
     const hashes = candidates.map((c) => c.infoHash.toLowerCase());
     const cachedHashes = new Set<string>();
 
+    // Check availability in user's personal Real-Debrid library
+    try {
+      const userTorrents = await this.rdClient.getUserTorrents(config.rdToken, 100);
+      for (const t of userTorrents) {
+        if (t.status === 'downloaded' && t.hash) {
+          cachedHashes.add(t.hash.toLowerCase());
+        }
+      }
+    } catch {
+      // Continue
+    }
+
     // Check availability in L4 cache first
     const missingHashes: string[] = [];
     for (const h of hashes) {
+      if (cachedHashes.has(h)) continue;
       const availKey = CacheManager.getRdAvailabilityKey(h);
       const isCached = await this.cache.get<boolean>(availKey);
       if (isCached === true) {

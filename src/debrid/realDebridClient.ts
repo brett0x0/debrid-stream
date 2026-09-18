@@ -137,6 +137,19 @@ export class RealDebridClient {
   }
 
   /**
+   * Retrieves the list of user's active/completed torrents.
+   */
+  public async getUserTorrents(
+    token: string,
+    limit: number = 100
+  ): Promise<Array<{ id: string; filename: string; hash: string; status: string; links?: string[] }>> {
+    return this.request<Array<{ id: string; filename: string; hash: string; status: string; links?: string[] }>>(
+      `/torrents?limit=${limit}`,
+      token
+    );
+  }
+
+  /**
    * Checks instant availability for up to 200 hashes in a single call.
    */
   public async getInstantAvailability(hashes: string[], token: string): Promise<RdInstantAvailabilityResponse> {

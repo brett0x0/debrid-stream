@@ -108,6 +108,12 @@ export class RealDebridClient {
         return this.request('/user', token);
     }
     /**
+     * Retrieves the list of user's active/completed torrents.
+     */
+    async getUserTorrents(token, limit = 100) {
+        return this.request(`/torrents?limit=${limit}`, token);
+    }
+    /**
      * Checks instant availability for up to 200 hashes in a single call.
      */
     async getInstantAvailability(hashes, token) {

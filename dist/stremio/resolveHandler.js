@@ -1,4 +1,5 @@
 import { CacheManager } from '../cache/cacheManager.js';
+import { logger } from '../observability/logger.js';
 export class ResolveHandler {
     rdClient;
     cache;
@@ -18,19 +19,39 @@ export class ResolveHandler {
             return cachedUrl;
         }
         try {
-            // 2. Add magnet to Real-Debrid
-            const magnet = `magnet:?xt=urn:btih:${cleanHash}`;
-            const added = await this.rdClient.addMagnet(magnet, config.rdToken);
-            // 3. Select target file (or all)
-            const selection = fileIdx > 0 ? String(fileIdx) : 'all';
-            await this.rdClient.selectFiles(added.id, selection, config.rdToken);
-            // 4. Retrieve torrent info and links
-            const info = await this.rdClient.getTorrentInfo(added.id, config.rdToken);
+            let torrentId;
+            // 2. Check if already present in user's active/completed torrents
+            try {
+                const userTorrents = await this.rdClient.getUserTorrents(config.rdToken, 50);
+                const existing = userTorrents.find((t) => t.hash.toLowerCase() === cleanHash);
+                if (existing) {
+                    torrentId = existing.id;
+                }
+            }
+            catch {
+                // Fall through to addMagnet
+            }
+            // 3. Add magnet to Real-Debrid if not already in user's account
+            if (!torrentId) {
+                const magnet = `magnet:?xt=urn:btih:${cleanHash}`;
+                const added = await this.rdClient.addMagnet(magnet, config.rdToken);
+                torrentId = added.id;
+            }
+            // 4. Retrieve torrent info
+            let info = await this.rdClient.getTorrentInfo(torrentId, config.rdToken);
+            // 5. Select target file if needed
+            if (info.status === 'waiting_files_selection') {
+                const selection = fileIdx > 0 ? String(fileIdx) : 'all';
+                await this.rdClient.selectFiles(torrentId, selection, config.rdToken);
+                info = await this.rdClient.getTorrentInfo(torrentId, config.rdToken);
+            }
             if (!info.links || info.links.length === 0) {
+                logger.warn({ infoHash: cleanHash, status: info.status }, 'No download links generated on RD');
                 return null;
             }
-            // 5. Unrestrict the target link
-            const targetLink = info.links[0];
+            // 6. Unrestrict the target link (target file index or first link)
+            const targetIdx = Math.min(fileIdx > 0 ? fileIdx - 1 : 0, info.links.length - 1);
+            const targetLink = info.links[targetIdx] || info.links[0];
             const unrestricted = await this.rdClient.unrestrictLink(targetLink, config.rdToken);
             if (unrestricted && unrestricted.download) {
                 // Cache resolved download URL for 4 hours (14400s)
@@ -39,7 +60,8 @@ export class ResolveHandler {
             }
             return null;
         }
-        catch {
+        catch (err) {
+            logger.error({ infoHash: cleanHash, error: err.message }, 'Failed to resolve stream link');
             return null;
         }
     }

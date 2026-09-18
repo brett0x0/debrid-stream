@@ -143,7 +143,13 @@ export function buildApp() {
     try {
       const validated = userConfigSchema.parse(req.body);
       const encoded = encodeUserConfig(validated, true);
-      const manifestUrl = `${env.ADDON_URL.replace(/\/+$/, '')}/${encoded}/manifest.json`;
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+      const proto = (req.headers['x-forwarded-proto'] as string) || (req.protocol.startsWith('http') ? req.protocol : 'https');
+      const baseUrl = host && !host.includes('localhost')
+        ? `${proto}://${host}`
+        : env.ADDON_URL.replace(/\/+$/, '');
+
+      const manifestUrl = `${baseUrl}/${encoded}/manifest.json`;
       const stremioInstallUrl = manifestUrl.replace(/^https?:\/\//, 'stremio://');
 
       return reply.send({
@@ -194,7 +200,11 @@ export function buildApp() {
     }
 
     try {
-      const result = await streamHandler.getStreams(type, id, userConfig, config);
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+      const proto = (req.headers['x-forwarded-proto'] as string) || (req.protocol.startsWith('http') ? req.protocol : 'https');
+      const baseUrlOverride = host && !host.includes('localhost') ? `${proto}://${host}` : undefined;
+
+      const result = await streamHandler.getStreams(type, id, userConfig, config, baseUrlOverride);
 
       reply.header('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800');
       return reply.send(result);

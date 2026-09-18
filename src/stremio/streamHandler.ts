@@ -31,7 +31,8 @@ export class StreamHandler {
     type: 'movie' | 'series',
     id: string,
     config: UserConfig,
-    encodedConfig: string
+    encodedConfig: string,
+    baseUrlOverride?: string
   ): Promise<StremioStreamResponse> {
     // 1. Resolve media metadata from Cinemeta
     const meta = await this.cinemeta.resolve(type, id);
@@ -137,7 +138,8 @@ export class StreamHandler {
 
       // Construct lazy resolution link
       const fileIdx = item.fileIdx ?? 0;
-      const resolveUrl = `${this.publicBaseUrl}/resolve/${encodedConfig}/${c.infoHash}/${fileIdx}`;
+      const baseUrl = baseUrlOverride || this.publicBaseUrl;
+      const resolveUrl = `${baseUrl}/resolve/${encodedConfig}/${c.infoHash}/${fileIdx}`;
 
       return {
         name: streamName,

@@ -128,6 +128,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
       }
 
+      if (data && data.manifestUrl) {
+        if (data.manifestUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
+          const origin = window.location.origin;
+          data.manifestUrl = data.manifestUrl.replace(/^https?:\/\/[^\/]+/, origin);
+          data.stremioInstallUrl = data.manifestUrl.replace(/^https?:\/\//, 'stremio://');
+        }
+      }
+
       return data;
     } catch {
       showStatus('❌ Error communicating with addon server', 'error');

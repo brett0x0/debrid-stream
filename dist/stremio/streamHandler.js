@@ -14,7 +14,7 @@ export class StreamHandler {
         this.publicBaseUrl = publicBaseUrl.replace(/\/+$/, '');
         this.cinemeta = new CinemetaClient();
     }
-    async getStreams(type, id, config, encodedConfig) {
+    async getStreams(type, id, config, encodedConfig, baseUrlOverride) {
         // 1. Resolve media metadata from Cinemeta
         const meta = await this.cinemeta.resolve(type, id);
         if (!meta) {
@@ -111,7 +111,8 @@ export class StreamHandler {
             }
             // Construct lazy resolution link
             const fileIdx = item.fileIdx ?? 0;
-            const resolveUrl = `${this.publicBaseUrl}/resolve/${encodedConfig}/${c.infoHash}/${fileIdx}`;
+            const baseUrl = baseUrlOverride || this.publicBaseUrl;
+            const resolveUrl = `${baseUrl}/resolve/${encodedConfig}/${c.infoHash}/${fileIdx}`;
             return {
                 name: streamName,
                 title: titleLines.join('\n'),

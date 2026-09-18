@@ -149,11 +149,13 @@ export class RealDebridClient {
     );
   }
 
+  private static instantAvailDisabled = false;
+
   /**
    * Checks instant availability for up to 200 hashes in a single call.
    */
   public async getInstantAvailability(hashes: string[], token: string): Promise<RdInstantAvailabilityResponse> {
-    if (hashes.length === 0) return {};
+    if (RealDebridClient.instantAvailDisabled || hashes.length === 0) return {};
 
     // Max 200 hashes per request chunk as per RD API specs
     const cleanHashes = hashes.map((h) => h.toLowerCase().trim()).filter((h) => h.length === 40);
@@ -173,8 +175,11 @@ export class RealDebridClient {
         if (resp && typeof resp === 'object') {
           Object.assign(merged, resp);
         }
-      } catch {
-        // Return whatever availability was retrieved
+      } catch (err: any) {
+        if (err.message && (err.message.includes('403') || err.message.includes('Forbidden'))) {
+          RealDebridClient.instantAvailDisabled = true;
+          break;
+        }
       }
     }
 

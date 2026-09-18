@@ -28,8 +28,16 @@ export class ProviderOrchestrator {
      * normalizes releases, parses torrent metadata, and deduplicates results.
      */
     async search(meta, config) {
-        const tasks = [];
-        for (const [name, provider] of this.providers.entries()) {
+        const corePriority = ['tpb', 'yts', 'eztv', 'torrentgalaxy', '1337x', 'rarbg'];
+        const sortedEntries = Array.from(this.providers.entries()).sort(([a], [b]) => {
+            const aIdx = corePriority.indexOf(a);
+            const bIdx = corePriority.indexOf(b);
+            const aWeight = aIdx === -1 ? 99 : aIdx;
+            const bWeight = bIdx === -1 ? 99 : bIdx;
+            return aWeight - bWeight;
+        });
+        const activeTasks = [];
+        for (const [name, provider] of sortedEntries) {
             // Check if provider is enabled by user
             if (config.enabledProviders.length > 0 && !config.enabledProviders.includes(name)) {
                 continue;
@@ -39,7 +47,7 @@ export class ProviderOrchestrator {
                 continue;
             }
             const breaker = this.breakers.get(name);
-            tasks.push((async () => {
+            activeTasks.push((async () => {
                 const t0 = Date.now();
                 const cand = await breaker.execute(async () => {
                     if (meta.type === 'movie') {
@@ -54,13 +62,54 @@ export class ProviderOrchestrator {
                 return cand;
             })());
         }
-        const settled = await Promise.allSettled(tasks);
+        if (activeTasks.length === 0)
+            return [];
         const allCandidates = [];
-        for (const res of settled) {
-            if (res.status === 'fulfilled' && Array.isArray(res.value)) {
-                allCandidates.push(...res.value);
+        const minCandidatesThreshold = 12;
+        const fastCutoffMs = 1200;
+        const hardTimeoutMs = env.PROVIDER_TIMEOUT_MS;
+        const startTime = Date.now();
+        await new Promise((resolve) => {
+            let isDone = false;
+            let completed = 0;
+            const total = activeTasks.length;
+            const finish = () => {
+                if (!isDone) {
+                    isDone = true;
+                    clearTimeout(cutoffTimer);
+                    clearTimeout(hardTimer);
+                    resolve();
+                }
+            };
+            const cutoffTimer = setTimeout(() => {
+                if (allCandidates.length >= minCandidatesThreshold) {
+                    logger.info({ candidateCount: allCandidates.length, elapsedMs: Date.now() - startTime }, 'Fast-cutoff triggered: returning high-speed results');
+                    finish();
+                }
+            }, fastCutoffMs);
+            const hardTimer = setTimeout(() => {
+                logger.info({ candidateCount: allCandidates.length, elapsedMs: Date.now() - startTime }, 'Provider search hit limit: returning gathered results');
+                finish();
+            }, hardTimeoutMs);
+            for (const task of activeTasks) {
+                task.then((res) => {
+                    if (Array.isArray(res) && res.length > 0) {
+                        allCandidates.push(...res);
+                    }
+                    completed++;
+                    if (completed >= total) {
+                        finish();
+                    }
+                    else if (Date.now() - startTime >= fastCutoffMs && allCandidates.length >= minCandidatesThreshold) {
+                        finish();
+                    }
+                }).catch(() => {
+                    completed++;
+                    if (completed >= total)
+                        finish();
+                });
             }
-        }
+        });
         // Parse each candidate and check matching
         const matchedCandidates = [];
         for (const cand of allCandidates) {

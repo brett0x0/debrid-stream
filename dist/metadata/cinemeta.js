@@ -1,5 +1,6 @@
 export class CinemetaClient {
     baseUrl = 'https://v3-cinemeta.strem.io';
+    static memCache = new Map();
     /**
      * Resolves metadata for a movie or TV series episode from Stremio ID.
      * Format:
@@ -7,6 +8,11 @@ export class CinemetaClient {
      * Series: "tt0903747:1:14" (ttId:season:episode)
      */
     async resolve(type, id) {
+        const cacheKey = `${type}:${id.toLowerCase()}`;
+        const cached = CinemetaClient.memCache.get(cacheKey);
+        if (cached && cached.expiry > Date.now()) {
+            return cached.data;
+        }
         const parts = id.split(':');
         const imdbId = parts[0];
         const season = parts[1] ? parseInt(parts[1], 10) : undefined;
@@ -44,7 +50,7 @@ export class CinemetaClient {
                     year = parsedYear;
                 }
             }
-            return {
+            const result = {
                 type,
                 imdbId,
                 title: data.meta.name,
@@ -53,6 +59,11 @@ export class CinemetaClient {
                 episode,
                 episodeTitle,
             };
+            CinemetaClient.memCache.set(cacheKey, {
+                data: result,
+                expiry: Date.now() + 86400 * 7 * 1000, // 7 days
+            });
+            return result;
         }
         catch {
             return null;

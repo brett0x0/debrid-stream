@@ -32,6 +32,27 @@ export class CacheManager {
     return `l4:rd:stream:${infoHash.toLowerCase()}:${fileIdx}`;
   }
 
+  /**
+   * Deterministic key generator for complete rendered Stremio stream responses.
+   */
+  public static getFullStreamKey(type: string, id: string, configHash: string): string {
+    return `l3:stream:full:${type}:${id.toLowerCase()}:${configHash}`;
+  }
+
+  /**
+   * Deterministic key generator for Real-Debrid active/completed torrents.
+   */
+  public static getUserTorrentsKey(tokenHash: string): string {
+    return `l4:rd:usertorrents:${tokenHash}`;
+  }
+
+  /**
+   * Deterministic key generator for Cinemeta media metadata.
+   */
+  public static getCinemetaKey(type: string, id: string): string {
+    return `l3:cinemeta:${type}:${id.toLowerCase()}`;
+  }
+
   public async get<T>(key: string): Promise<T | null> {
     // 1. Check L1 Memory Cache
     const l1Val = await this.l1.get<T>(key);

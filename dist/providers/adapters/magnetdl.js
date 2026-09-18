@@ -1,4 +1,5 @@
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
+import { safeFetch } from '../httpClient.js';
 export class MagnetDlAdapter {
     name = 'magnetdl';
     displayName = 'MagnetDL';
@@ -26,11 +27,7 @@ export class MagnetDlAdapter {
             const firstChar = clean[0];
             const slug = clean.split(/\s+/).join('-');
             const url = `${this.baseUrl}/${firstChar}/${slug}/`;
-            const res = await fetch(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                },
-            });
+            const res = await safeFetch(url);
             if (!res.ok)
                 return [];
             const html = await res.text();
@@ -59,9 +56,7 @@ export class MagnetDlAdapter {
     }
     async healthCheck() {
         try {
-            const res = await fetch(`${this.baseUrl}/`, {
-                headers: { 'User-Agent': 'Mozilla/5.0' },
-            });
+            const res = await safeFetch(`${this.baseUrl}/`);
             return res.ok;
         }
         catch {

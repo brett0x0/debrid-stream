@@ -2,6 +2,7 @@ import { TorrentProvider } from '../providerInterface.js';
 import { MediaMetadata } from '../../metadata/types.js';
 import { TorrentCandidate } from '../../parser/types.js';
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
+import { safeFetch } from '../httpClient.js';
 
 export class MagnetDlAdapter implements TorrentProvider {
   public readonly name = 'magnetdl';
@@ -33,11 +34,7 @@ export class MagnetDlAdapter implements TorrentProvider {
       const slug = clean.split(/\s+/).join('-');
       const url = `${this.baseUrl}/${firstChar}/${slug}/`;
 
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        },
-      });
+      const res = await safeFetch(url);
 
       if (!res.ok) return [];
       const html = await res.text();
@@ -70,9 +67,7 @@ export class MagnetDlAdapter implements TorrentProvider {
 
   public async healthCheck(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-      });
+      const res = await safeFetch(`${this.baseUrl}/`);
       return res.ok;
     } catch {
       return false;

@@ -9,7 +9,7 @@ export async function safeFetch(url: string, options: RequestInit = {}): Promise
     ...(options.headers || {}),
   };
 
-  const signal = options.signal || AbortSignal.timeout(6000);
+  const signal = options.signal || AbortSignal.timeout(2500);
 
   return fetch(url, {
     ...options,

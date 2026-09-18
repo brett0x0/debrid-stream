@@ -6,7 +6,7 @@ export async function safeFetch(url, options = {}) {
         'Accept-Language': 'en-US,en;q=0.9',
         ...(options.headers || {}),
     };
-    const signal = options.signal || AbortSignal.timeout(6000);
+    const signal = options.signal || AbortSignal.timeout(2500);
     return fetch(url, {
         ...options,
         headers,

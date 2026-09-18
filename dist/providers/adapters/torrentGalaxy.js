@@ -1,4 +1,5 @@
 import { MetadataNormalizer } from '../../metadata/normalizer.js';
+import { safeFetch } from '../httpClient.js';
 export class TorrentGalaxyAdapter {
     name = 'torrentgalaxy';
     supportedTypes = ['movie', 'series'];
@@ -19,11 +20,7 @@ export class TorrentGalaxyAdapter {
         const candidates = [];
         try {
             const url = `${this.baseUrl}/torrents.php?search=${encodeURIComponent(query)}&sort=seeders&order=desc`;
-            const res = await fetch(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                },
-            });
+            const res = await safeFetch(url);
             if (!res.ok)
                 return [];
             const html = await res.text();
@@ -69,7 +66,7 @@ export class TorrentGalaxyAdapter {
     }
     async healthCheck() {
         try {
-            const res = await fetch(`${this.baseUrl}/`);
+            const res = await safeFetch(`${this.baseUrl}/`);
             return res.ok;
         }
         catch {

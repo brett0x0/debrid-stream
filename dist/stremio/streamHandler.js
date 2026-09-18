@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { CinemetaClient } from '../metadata/cinemeta.js';
 import { CacheManager } from '../cache/cacheManager.js';
 import { StreamRanker } from '../ranking/ranker.js';
@@ -16,6 +17,21 @@ export class StreamHandler {
         this.cinemeta = new CinemetaClient();
     }
     async getStreams(type, id, config, encodedConfig, baseUrlOverride) {
+        const configHash = crypto.createHash('md5').update(JSON.stringify(config)).digest('hex').slice(0, 10);
+        const fullStreamKey = CacheManager.getFullStreamKey(type, id, configHash);
+        // 0. Check full stream response cache (instant sub-millisecond return)
+        const cachedResponse = await this.cache.get(fullStreamKey);
+        if (cachedResponse && cachedResponse.streams && cachedResponse.streams.length > 0) {
+            if (baseUrlOverride) {
+                return {
+                    streams: cachedResponse.streams.map((s) => ({
+                        ...s,
+                        url: s.url ? s.url.replace(/^https?:\/\/[^/]+/, baseUrlOverride) : s.url,
+                    })),
+                };
+            }
+            return cachedResponse;
+        }
         // 1. Resolve media metadata from Cinemeta
         const meta = await this.cinemeta.resolve(type, id);
         if (!meta) {
@@ -42,17 +58,23 @@ export class StreamHandler {
         // 3. Batch check Real-Debrid instant availability
         const hashes = candidates.map((c) => c.infoHash.toLowerCase());
         const cachedHashes = new Set();
-        // Check availability in user's personal Real-Debrid library
-        try {
-            const userTorrents = await this.rdClient.getUserTorrents(config.rdToken, 100);
-            for (const t of userTorrents) {
-                if (t.status === 'downloaded' && t.hash) {
-                    cachedHashes.add(t.hash.toLowerCase());
-                }
+        // Check availability in user's personal Real-Debrid library (cached 60s)
+        const tokenHash = crypto.createHash('md5').update(config.rdToken).digest('hex').slice(0, 10);
+        const userTorrentsKey = CacheManager.getUserTorrentsKey(tokenHash);
+        let userTorrents = await this.cache.get(userTorrentsKey);
+        if (!userTorrents) {
+            try {
+                userTorrents = await this.rdClient.getUserTorrents(config.rdToken, 100);
+                await this.cache.set(userTorrentsKey, userTorrents, 60); // 60 seconds TTL
+            }
+            catch {
+                userTorrents = [];
             }
         }
-        catch {
-            // Continue
+        for (const t of userTorrents) {
+            if (t.status === 'downloaded' && t.hash) {
+                cachedHashes.add(t.hash.toLowerCase());
+            }
         }
         // Check availability in L4 cache first
         const missingHashes = [];
@@ -150,6 +172,10 @@ export class StreamHandler {
                 },
             };
         });
-        return { streams };
+        const result = { streams };
+        if (streams.length > 0) {
+            await this.cache.set(fullStreamKey, result, 7200); // 2 hours
+        }
+        return result;
     }
 }

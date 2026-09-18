@@ -19,17 +19,18 @@ export class ThePirateBayAdapter implements TorrentProvider {
   public readonly name = 'tpb';
   public readonly supportedTypes: ('movie' | 'series')[] = ['movie', 'series'];
   private readonly baseUrl = 'https://apibay.org';
+  private readonly mirrorUrls = ['https://tpb.party', 'https://thepiratebay10.org'];
 
   public async searchMovie(meta: MediaMetadata): Promise<TorrentCandidate[]> {
     const queries = MetadataNormalizer.buildSearchQueries(meta);
     let results: TorrentCandidate[] = [];
 
     if (queries[0]) {
-      results = await this.queryApibay(queries[0], '200');
+      results = await this.queryTpb(queries[0], '200');
     }
 
     if (results.length < 5 && meta.imdbId) {
-      const imdbResults = await this.queryApibay(meta.imdbId, '200');
+      const imdbResults = await this.queryTpb(meta.imdbId, '200');
       results = [...results, ...imdbResults];
     }
 
@@ -41,15 +42,41 @@ export class ThePirateBayAdapter implements TorrentProvider {
     let results: TorrentCandidate[] = [];
 
     if (queries[0]) {
-      results = await this.queryApibay(queries[0], '200');
+      results = await this.queryTpb(queries[0], '200');
     }
 
     if (results.length < 5 && meta.imdbId) {
-      const imdbResults = await this.queryApibay(meta.imdbId, '200');
+      const imdbResults = await this.queryTpb(meta.imdbId, '200');
       results = [...results, ...imdbResults];
     }
 
     return results;
+  }
+
+  private async queryTpb(query: string, category: string): Promise<TorrentCandidate[]> {
+    // 1. Try apibay.org first (fast JSON API for residential/unblocked environments)
+    try {
+      const candidates = await this.queryApibay(query, category);
+      if (candidates.length > 0) {
+        return candidates;
+      }
+    } catch {
+      // Fall through to mirrors
+    }
+
+    // 2. Fall back to TPB web mirrors (unblocked in datacenter/cloud environments like Render)
+    for (const mirror of this.mirrorUrls) {
+      try {
+        const candidates = await this.queryMirror(mirror, query, category);
+        if (candidates.length > 0) {
+          return candidates;
+        }
+      } catch (err: any) {
+        logger.warn({ provider: this.name, mirror, query, err: err.message }, 'TPB mirror fetch failed');
+      }
+    }
+
+    return [];
   }
 
   private async queryApibay(query: string, category: string): Promise<TorrentCandidate[]> {
@@ -59,13 +86,11 @@ export class ThePirateBayAdapter implements TorrentProvider {
       const url = `${this.baseUrl}/q.php?q=${encodeURIComponent(query)}&cat=${category}`;
       const res = await safeFetch(url);
       if (!res.ok) {
-        logger.warn({ provider: this.name, query, status: res.status }, 'Apibay returned non-200');
         return [];
       }
 
       const items = (await res.json()) as TpbItem[];
       if (!Array.isArray(items)) {
-        logger.warn({ provider: this.name, query, items }, 'Apibay returned non-array');
         return [];
       }
 
@@ -90,9 +115,53 @@ export class ThePirateBayAdapter implements TorrentProvider {
           magnetUri: `magnet:?xt=urn:btih:${cleanHash}&dn=${encodeURIComponent(item.name)}`,
         });
       }
-    } catch (err: any) {
-      logger.warn({ provider: this.name, query, err: err.message }, 'Apibay fetch failed');
+    } catch {
       return [];
+    }
+
+    return candidates;
+  }
+
+  private async queryMirror(mirror: string, query: string, category: string): Promise<TorrentCandidate[]> {
+    const url = `${mirror}/search/${encodeURIComponent(query)}/1/99/${category}`;
+    const res = await safeFetch(url);
+    if (!res.ok) {
+      return [];
+    }
+
+    const html = await res.text();
+    const candidates: TorrentCandidate[] = [];
+
+    const rowRegex = /<tr[^>]*>[\s\S]*?title="Details for ([^"]+)"[\s\S]*?href="(magnet:\?xt=urn:btih:([a-fA-F0-9]{40})[^"]*)"[\s\S]*?<td align="right">([0-9\.]+)(?:&nbsp;|\s*)([KMGTP]?i?B)<\/td>[\s\S]*?<td align="right">([0-9]+)<\/td>[\s\S]*?<td align="right">([0-9]+)<\/td>[\s\S]*?<\/tr>/gi;
+
+    let match: RegExpExecArray | null;
+    while ((match = rowRegex.exec(html)) !== null) {
+      const title = match[1]!;
+      const magnet = match[2]!;
+      const cleanHash = match[3]!.toLowerCase();
+      const sizeVal = parseFloat(match[4]!);
+      const sizeUnit = match[5]!.toUpperCase();
+      const seeders = parseInt(match[6]!, 10) || 0;
+      const leechers = parseInt(match[7]!, 10) || 0;
+
+      let multiplier = 1;
+      if (sizeUnit.includes('K')) multiplier = 1024;
+      else if (sizeUnit.includes('M')) multiplier = 1024 * 1024;
+      else if (sizeUnit.includes('G')) multiplier = 1024 * 1024 * 1024;
+      else if (sizeUnit.includes('T')) multiplier = 1024 * 1024 * 1024 * 1024;
+
+      const sizeBytes = Math.round(sizeVal * multiplier);
+
+      candidates.push({
+        id: `tpb-${cleanHash}`,
+        provider: this.name,
+        title,
+        infoHash: cleanHash,
+        sizeBytes,
+        seeders,
+        leechers,
+        magnetUri: magnet,
+      });
     }
 
     return candidates;
@@ -101,7 +170,9 @@ export class ThePirateBayAdapter implements TorrentProvider {
   public async healthCheck(): Promise<boolean> {
     try {
       const res = await safeFetch(`${this.baseUrl}/q.php?q=test&cat=200`);
-      return res.ok;
+      if (res.ok) return true;
+      const mirrorRes = await safeFetch(`${this.mirrorUrls[0]}/search/test/1/99/200`);
+      return mirrorRes.ok;
     } catch {
       return false;
     }

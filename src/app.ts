@@ -170,6 +170,16 @@ export function buildApp() {
     }
   });
 
+  // API to decode user configuration when loading configure page for editing
+  app.get('/api/decode-config/:config', async (req, reply) => {
+    const { config } = req.params as { config: string };
+    const decoded = decodeUserConfig(config);
+    if (!decoded) {
+      return reply.status(400).send({ ok: false, error: 'Invalid configuration payload' });
+    }
+    return reply.send({ ok: true, config: decoded });
+  });
+
   // Stremio: Root unconfigured manifest
   app.get('/manifest.json', async (_req, reply) => {
     reply.header('Cache-Control', 'max-age=86400, public');

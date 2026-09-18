@@ -173,4 +173,67 @@ document.addEventListener('DOMContentLoaded', () => {
       manifestUrlInput.select();
     }
   });
+
+  // Check if page opened with existing configuration in URL path (e.g. /:config/configure)
+  async function loadExistingConfig() {
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    let configPayload = null;
+    if (pathParts.length >= 2 && pathParts[pathParts.length - 1] === 'configure') {
+      configPayload = pathParts[pathParts.length - 2];
+    } else {
+      const urlParams = new URLSearchParams(window.location.search);
+      configPayload = urlParams.get('config');
+    }
+
+    if (!configPayload || configPayload === 'configure') return;
+
+    try {
+      const res = await fetch(`/api/decode-config/${encodeURIComponent(configPayload)}`);
+      const data = await res.json();
+      if (!res.ok || !data.ok || !data.config) return;
+
+      const cfg = data.config;
+      if (cfg.rdToken) {
+        tokenInput.value = cfg.rdToken;
+        btnValidate.click(); // Auto-validate token
+      }
+      if (cfg.sortOrder) {
+        const sortEl = document.getElementById('sortOrder');
+        if (sortEl) sortEl.value = cfg.sortOrder;
+      }
+      if (cfg.maxResults) {
+        const maxResultsEl = document.getElementById('maxResults');
+        if (maxResultsEl) maxResultsEl.value = cfg.maxResults;
+      }
+      if (cfg.maxResultsPerQuality !== undefined) {
+        const mqEl = document.getElementById('maxResultsPerQuality');
+        if (mqEl) mqEl.value = cfg.maxResultsPerQuality;
+      }
+      if (cfg.maxFileSizeGb !== undefined) {
+        const fsEl = document.getElementById('maxFileSizeGb');
+        if (fsEl) fsEl.value = cfg.maxFileSizeGb;
+      }
+      if (cfg.showCachedOnly !== undefined) {
+        const scEl = document.getElementById('showCachedOnly');
+        if (scEl) scEl.checked = cfg.showCachedOnly;
+      }
+      if (cfg.enabledProviders && Array.isArray(cfg.enabledProviders)) {
+        document.querySelectorAll('input[name="providers"]').forEach((cb) => {
+          cb.checked = cfg.enabledProviders.includes(cb.value);
+        });
+      }
+      if (cfg.preferredResolutions && Array.isArray(cfg.preferredResolutions)) {
+        document.querySelectorAll('input[name="resolutions"]').forEach((cb) => {
+          cb.checked = cfg.preferredResolutions.includes(cb.value);
+        });
+      }
+
+      btnInstall.textContent = '⚡ Update Addon in Stremio';
+      showStatus('ℹ️ Loaded existing addon configuration for editing', 'info');
+    } catch (e) {
+      console.error('Failed to load existing config:', e);
+    }
+  }
+
+  loadExistingConfig();
 });

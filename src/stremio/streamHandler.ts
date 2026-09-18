@@ -42,11 +42,13 @@ export class StreamHandler {
 
     // 2. Fetch candidates from L3 provider cache or search orchestrator
     const provCacheKey = CacheManager.getProviderSearchKey(type, id);
-    const candidates = await this.cache.wrap<TorrentCandidate[]>(
-      provCacheKey,
-      async () => this.orchestrator.search(meta, config),
-      7200 // 2 hours TTL for torrent index search
-    );
+    let candidates = await this.cache.get<TorrentCandidate[]>(provCacheKey);
+    if (!candidates || candidates.length === 0) {
+      candidates = await this.orchestrator.search(meta, config);
+      if (candidates && candidates.length > 0) {
+        await this.cache.set(provCacheKey, candidates, 7200);
+      }
+    }
 
     if (!candidates || candidates.length === 0) {
       return { streams: [] };
@@ -96,7 +98,7 @@ export class StreamHandler {
       const p = c.parsed;
 
       // Quality badge
-      const badge = item.isCached ? '[RD+]' : '[RD download]';
+      const badge = item.isCached || cachedHashes.size === 0 ? '[RD+]' : '[RD download]';
       const res = p?.resolution && p.resolution !== 'unknown' ? p.resolution : 'HD';
 
       // Format file size

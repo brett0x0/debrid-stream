@@ -39,7 +39,10 @@ export class StreamRanker {
       const isCached = cachedHashes.has(cleanHash);
 
       // 3. Show cached only filter
-      if (config.showCachedOnly && !isCached) {
+      // If cachedHashes is populated, enforce cached filter.
+      // If cachedHashes is empty (because Real-Debrid disabled the instantAvailability endpoint),
+      // do not discard all streams so users can still stream via Real-Debrid on-demand resolve.
+      if (config.showCachedOnly && cachedHashes.size > 0 && !isCached) {
         continue;
       }
 

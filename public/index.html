@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DebridStream - Real-Debrid Stremio Addon</title>
+  <link rel="stylesheet" href="/public/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo-badge">⚡ DebridStream RD</div>
+      <h1>Self-Hosted Real-Debrid Addon</h1>
+      <p class="subtitle">High-performance, ultra-fast streaming for movies and TV series directly inside Stremio.</p>
+    </header>
+
+    <main class="card">
+      <form id="configForm">
+        <!-- 1. Real-Debrid Credentials -->
+        <section class="section">
+          <h2>1. Real-Debrid API Key</h2>
+          <div class="form-group">
+            <label for="rdToken">Real-Debrid API Token <span class="required">*</span></label>
+            <div class="input-with-action">
+              <input type="password" id="rdToken" name="rdToken" placeholder="Enter your Real-Debrid API Key" required autocomplete="off">
+              <button type="button" id="btnValidate" class="btn btn-secondary">Validate Key</button>
+            </div>
+            <div id="tokenStatus" class="status-box hidden"></div>
+            <small class="help-text">Find your secret key at <a href="https://real-debrid.com/apitoken" target="_blank" rel="noopener">real-debrid.com/apitoken</a>. Your key is encrypted and never logged.</small>
+          </div>
+        </section>
+
+        <!-- 2. Torrent Providers & Sources -->
+        <section class="section">
+          <div class="section-header-flex">
+            <h2>2. Torrent Providers &amp; Sources</h2>
+            <div class="btn-group">
+              <button type="button" id="btnSelectAllProviders" class="btn btn-xs btn-outline">Select All</button>
+              <button type="button" id="btnDeselectAllProviders" class="btn btn-xs btn-outline">Deselect All</button>
+            </div>
+          </div>
+          <p class="section-desc">Select which torrent indexers and scraped providers to query in parallel:</p>
+          
+          <h3 class="category-heading">Mainstream / Hollywood</h3>
+          <div class="checkbox-grid">
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="yts" checked>
+              <div class="card-content">
+                <span class="title">YTS(+)</span>
+                <span class="sub">Movies</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="eztv" checked>
+              <div class="card-content">
+                <span class="title">EZTV(+)</span>
+                <span class="sub">TV Series</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="rarbg" checked>
+              <div class="card-content">
+                <span class="title">RARBG(+)</span>
+                <span class="sub">Movies & TV</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="1337x" checked>
+              <div class="card-content">
+                <span class="title">1337x(+)</span>
+                <span class="sub">Movies & TV</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="tpb" checked>
+              <div class="card-content">
+                <span class="title">ThePirateBay(+)</span>
+                <span class="sub">Movies & TV</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="kickass" checked>
+              <div class="card-content">
+                <span class="title">KickassTorrents(+)</span>
+                <span class="sub">Movies & TV</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="torrentgalaxy" checked>
+              <div class="card-content">
+                <span class="title">TorrentGalaxy(+)</span>
+                <span class="sub">High Quality</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="magnetdl" checked>
+              <div class="card-content">
+                <span class="title">MagnetDL(+)</span>
+                <span class="sub">Fast Index</span>
+              </div>
+            </label>
+          </div>
+
+          <h3 class="category-heading">Anime / Asian</h3>
+          <div class="checkbox-grid">
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="nyaasi" checked>
+              <div class="card-content">
+                <span class="title">NyaaSi(+)</span>
+                <span class="sub">Anime</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="tokyotosho" checked>
+              <div class="card-content">
+                <span class="title">TokyoTosho(+)</span>
+                <span class="sub">Anime</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="anidex" checked>
+              <div class="card-content">
+                <span class="title">AniDex(+)</span>
+                <span class="sub">Anime</span>
+              </div>
+            </label>
+          </div>
+
+          <h3 class="category-heading">Regional / Foreign Language</h3>
+          <div class="checkbox-grid">
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="rutor" checked>
+              <div class="card-content">
+                <span class="title">Rutor(+)</span>
+                <span class="sub">Russian / Multi</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="rutracker" checked>
+              <div class="card-content">
+                <span class="title">Rutracker(+)</span>
+                <span class="sub">Russian / Multi</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="torrent9" checked>
+              <div class="card-content">
+                <span class="title">Torrent9(+)</span>
+                <span class="sub">French / Multi</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="mejortorrent" checked>
+              <div class="card-content">
+                <span class="title">MejorTorrent(+)</span>
+                <span class="sub">Spanish / Multi</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="providers" value="cinecalidad" checked>
+              <div class="card-content">
+                <span class="title">Cinecalidad(+)</span>
+                <span class="sub">Latino / Spanish</span>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- 3. Sorting and Limits -->
+        <section class="section">
+          <h2>3. Sorting &amp; Limits</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="sortOrder">Sorting</label>
+              <select id="sortOrder" name="sortOrder">
+                <option value="quality_seeders" selected>By quality then seeders (Recommended)</option>
+                <option value="quality_size">By quality then size</option>
+                <option value="seeders">By seeders</option>
+                <option value="size">By size</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="maxResultsPerQuality">Max Results per Quality</label>
+              <select id="maxResultsPerQuality" name="maxResultsPerQuality">
+                <option value="0" selected>All results</option>
+                <option value="1">1 result</option>
+                <option value="2">2 results</option>
+                <option value="3">3 results</option>
+                <option value="4">4 results</option>
+                <option value="5">5 results</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="maxResults">Total Max Results</label>
+              <input type="number" id="maxResults" name="maxResults" min="5" max="100" value="30">
+            </div>
+            <div class="form-group">
+              <label for="maxFileSizeGb">Max File Size (GB)</label>
+              <input type="number" id="maxFileSizeGb" name="maxFileSizeGb" min="0" max="200" value="0" placeholder="0 = Unlimited">
+            </div>
+          </div>
+
+          <div class="form-group toggle-group">
+            <label class="switch-label" for="showCachedOnly">
+              <span>Show Cached Releases Only [RD+]</span>
+              <input type="checkbox" id="showCachedOnly" name="showCachedOnly" checked>
+              <span class="slider"></span>
+            </label>
+            <small class="help-text">Only shows streams ready for instant playback in Stremio</small>
+          </div>
+        </section>
+
+        <!-- 4. Video Resolutions -->
+        <section class="section">
+          <h2>4. Video Resolutions</h2>
+          <div class="checkbox-grid">
+            <label class="checkbox-card">
+              <input type="checkbox" name="resolutions" value="2160p" checked>
+              <div class="card-content">
+                <span class="title">4K UHD</span>
+                <span class="sub">2160p</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="resolutions" value="1080p" checked>
+              <div class="card-content">
+                <span class="title">Full HD</span>
+                <span class="sub">1080p</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="resolutions" value="720p" checked>
+              <div class="card-content">
+                <span class="title">HD</span>
+                <span class="sub">720p</span>
+              </div>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" name="resolutions" value="480p">
+              <div class="card-content">
+                <span class="title">SD</span>
+                <span class="sub">480p</span>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="actions">
+          <button type="button" id="btnInstall" class="btn btn-primary btn-large">
+            🚀 Install Addon to Stremio
+          </button>
+          <button type="button" id="btnCopy" class="btn btn-outline">
+            📋 Copy Manifest URL
+          </button>
+        </div>
+
+        <div id="installNotice" class="install-notice hidden">
+          <p>If Stremio didn't open automatically, copy and paste this URL into Stremio's search bar:</p>
+          <input type="text" id="manifestUrlInput" readonly>
+        </div>
+      </form>
+    </main>
+
+    <footer class="footer">
+      <p>DebridStream RD &bull; Self-Hosted &bull; Independent Architecture &bull; Respects Real-Debrid API limits</p>
+    </footer>
+  </div>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

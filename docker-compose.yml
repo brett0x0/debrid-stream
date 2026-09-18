@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  debrid-stream:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: debrid-stream
+    restart: unless-stopped
+    ports:
+      - "7000:7000"
+    environment:
+      - PORT=7000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - ADDON_URL=${ADDON_URL:-http://localhost:7000}
+      - SECRET_KEY=${SECRET_KEY:-debrid-stream-secret-key-32-chars-long!}
+      - REDIS_URL=redis://redis:6379
+      - RD_REQUEST_TIMEOUT_MS=8000
+      - PROVIDER_TIMEOUT_MS=3500
+      - LOG_LEVEL=info
+    volumes:
+      - debrid-data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:7000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: debrid-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  debrid-data:
+  redis-data:
